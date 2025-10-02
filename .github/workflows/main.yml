@@ -1,0 +1,63 @@
+name: Android Interactivo con VNC y Playit.gg (Actualizado)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: 1. Instalar Dependencias (Pantalla Virtual y Servidor VNC)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xfce4 xfce4-goodies dbus-x11 x11-xserver-utils xorg xvfb x11vnc autocutsel
+
+      - name: 2. Iniciar Túnel VNC con playit.gg
+        run: |
+          # Iniciamos el servidor VNC en segundo plano en el puerto 5900
+          echo "Iniciando pantalla virtual y servidor VNC..."
+          Xvfb :1 -screen 0 1280x720x24 &
+          x11vnc -display :1 -nopw -listen localhost -xkb -ncache 10 -ncache_cr -forever &
+          
+          # Descargamos y preparamos el agente de playit para Linux (URL actualizada por ti)
+          echo "Descargando agente de playit.gg v0.16.2..."
+          wget -O playit https://github.com/playit-cloud/playit-agent/releases/download/v0.16.2/playit-linux-amd64
+          chmod +x playit
+          
+          # Ejecutamos playit en segundo plano para que genere el túnel
+          echo "Iniciando túnel de playit.gg..."
+          ./playit &
+          
+          # Esperamos 20 segundos a que el agente se conecte y genere la URL
+          sleep 20
+          
+          # Mostramos las instrucciones para que el usuario configure el túnel
+          echo "====================== ACCIÓN REQUERIDA ======================"
+          echo " Ve a la siguiente URL para reclamar este túnel:"
+          cat ~/.config/playit/playit.log | grep -o "https://playit.gg/claim/[^\s]*"
+          echo ""
+          echo " INSTRUCCIONES IMPORTANTES:"
+          echo " 1. Abre el enlace de arriba en tu navegador e inicia sesión."
+          echo " 2. Una vez reclamado, ve a la sección 'Tunnels' de la máquina."
+          echo " 3. Crea un nuevo túnel de tipo TCP."
+          echo " 4. Configúralo para que apunte al puerto local (Local Port): 5900"
+          echo " 5. playit.gg te dará una dirección pública (ej: random-name.at.playit.gg:puerto)."
+          echo " 6. Usa esa dirección en tu cliente VNC para conectarte."
+          echo "================================================================="
+          
+      - name: 3. Iniciar Emulador de Android 12 (con GUI)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 31 # Android 12
+          arch: x86_64
+          # Le decimos al emulador que use nuestra pantalla virtual
+          emulator-options: -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
+          script: |
+            echo "El emulador está corriendo dentro del entorno VNC."
+            echo "Puedes conectarte ahora para instalar y configurar tu app."
+            # Bucle infinito para mantener el workflow y el emulador activos
+            while true; do
+              sleep 60
+            done
