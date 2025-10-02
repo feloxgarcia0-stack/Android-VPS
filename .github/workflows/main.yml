@@ -1,4 +1,4 @@
-name: Android Interactivo - Lógica Corregida
+name: Escritorio Linux con VNC y Playit.gg
 
 on:
   workflow_dispatch:
@@ -9,42 +9,33 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: 1. Preparar Entorno Gráfico (Pantalla Virtual y VNC)
+      - name: 1. Crear Escritorio y Conectar con playit.gg
         run: |
-          echo "Instalando dependencias..."
+          # 1. INSTALAR ENTORNO DE ESCRITORIO LIGERO (XFCE) Y SERVIDOR VNC
+          echo "Instalando entorno de escritorio y servidor VNC..."
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xfce4 xfce4-goodies dbus-x11 x11-xserver-utils xorg xvfb x11vnc autocutsel
-          echo "Iniciando pantalla virtual y servidor VNC en segundo plano..."
+          
+          # 2. INICIAR ESCRITORIO EN PANTALLA VIRTUAL Y SERVIDOR VNC
+          echo "Iniciando servicios gráficos en segundo plano..."
+          # Inicia la pantalla virtual
           Xvfb :1 -screen 0 1280x720x24 &
+          # Inicia el gestor de ventanas XFCE en esa pantalla
+          startxfce4 --display=:1 &
+          # Inicia el servidor VNC para compartir esa pantalla
           x11vnc -display :1 -nopw -listen localhost -xkb -ncache 10 -ncache_cr -forever &
 
-      - name: 2. Iniciar Emulador de Android en Segundo Plano
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 31 # Android 12
-          arch: x86_64
-          # Le decimos al emulador que use nuestra pantalla virtual
-          emulator-options: -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
-          # El script se ejecuta DESPUÉS de que el emulador esté listo
-          # Lo dejamos en segundo plano para que el siguiente paso pueda ejecutarse
-          script: |
-            echo "El emulador ha arrancado y está listo."
-            
-      - name: 3. Conectar con playit.gg y Mantener Activo (Paso Final)
-        run: |
-          # Descargamos el agente de playit
+          # 3. DESCARGAR Y PREPARAR PLAYIT.GG
           echo "Descargando agente de playit.gg v0.16.2..."
           wget -O playit https://github.com/playit-cloud/playit-agent/releases/download/v0.16.2/playit-linux-amd64
           chmod +x playit
           
-          # Guardamos la salida de playit en un log
+          # 4. INICIAR TÚNEL Y MOSTRAR INSTRUCCIONES
           echo "Iniciando túnel de playit.gg..."
           ./playit &> playit_output.log &
-          
-          # Esperamos a que el agente se conecte
-          sleep 20
-          
-          # Mostramos las instrucciones, esta es la última información que verás
+          sleep 20 # Esperar a que se genere el enlace
+
+          # 5. MOSTRAR LA INFORMACIÓN DE CONEXIÓN
           echo "====================== ACCIÓN REQUERIDA ======================"
           echo " Ve a la siguiente URL para reclamar este túnel:"
           grep -o "https://playit.gg/claim/[^\s]*" playit_output.log
@@ -57,7 +48,7 @@ jobs:
           echo ""
           echo "El sistema está listo y se mantendrá en ejecución..."
 
-          # Bucle infinito para mantener el workflow y todos los procesos vivos
+          # 6. MANTENER ACTIVO EL WORKFLOW
           while true; do
             sleep 60
           done
